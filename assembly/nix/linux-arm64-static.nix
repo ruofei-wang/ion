@@ -10,7 +10,7 @@ let
 in
 with import microhttpdmy;
 stdenv.mkDerivation {
-  pname = "ton";
+  pname = "ion";
   version = "dev-bin";
 
   src = ./.;

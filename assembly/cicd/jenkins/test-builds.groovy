@@ -16,9 +16,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-x86_64-linux-shared ./*
+                                zip -9r ion-x86_64-linux-shared ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-x86_64-linux-shared.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-x86_64-linux-shared.zip'
                         }
                     }
                 }
@@ -35,9 +35,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-x86-64-linux-portable ./*
+                                zip -9r ion-x86-64-linux-portable ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-x86-64-linux-portable.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-x86-64-linux-portable.zip'
                         }
                     }
                 }
@@ -54,9 +54,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-arm64-linux-shared ./*
+                                zip -9r ion-arm64-linux-shared ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-arm64-linux-shared.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-arm64-linux-shared.zip'
                         }
                     }
                 }
@@ -73,9 +73,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-arm64-linux-portable ./*
+                                zip -9r ion-arm64-linux-portable ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-arm64-linux-portable.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-arm64-linux-portable.zip'
                         }
                     }
                 }
@@ -92,9 +92,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-x86-64-macos-shared ./*
+                                zip -9r ion-x86-64-macos-shared ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-x86-64-macos-shared.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-x86-64-macos-shared.zip'
                         }
                     }
                 }
@@ -111,9 +111,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-x86-64-macos-portable ./*
+                                zip -9r ion-x86-64-macos-portable ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-x86-64-macos-portable.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-x86-64-macos-portable.zip'
                         }
                     }
                 }
@@ -130,9 +130,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-arm64-macos-m1-shared ./*
+                                zip -9r ion-arm64-macos-m1-shared ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-arm64-macos-m1-shared.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-arm64-macos-m1-shared.zip'
                         }
                     }
                 }
@@ -149,9 +149,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-arm64-macos-portable ./*
+                                zip -9r ion-arm64-macos-portable ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-arm64-macos-portable.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-arm64-macos-portable.zip'
                         }
                     }
                 }
@@ -168,9 +168,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-arm64-macos-m2-shared ./*
+                                zip -9r ion-arm64-macos-m2-shared ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-arm64-macos-m2-shared.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-arm64-macos-m2-shared.zip'
                         }
                     }
                 }
@@ -186,9 +186,9 @@ pipeline {
                             '''
                             bat '''
                                 cd artifacts
-                                zip -9r ton-x86-64-windows ./*
+                                zip -9r ion-x86-64-windows ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-x86-64-windows.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-x86-64-windows.zip'
                         }
                     }
                 }
@@ -205,9 +205,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts/tonlib-android-jni
-                                zip -9r ton-android-tonlib ./*
+                                zip -9r ion-android-tonlib ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/tonlib-android-jni/ton-android-tonlib.zip'
+                            archiveArtifacts artifacts: 'artifacts/tonlib-android-jni/ion-android-tonlib.zip'
                         }
                     }
                 }
@@ -224,9 +224,9 @@ pipeline {
                             '''
                             sh '''
                                 cd artifacts
-                                zip -9r ton-wasm-binaries ./*
+                                zip -9r ion-wasm-binaries ./*
                             '''
-                            archiveArtifacts artifacts: 'artifacts/ton-wasm-binaries.zip'
+                            archiveArtifacts artifacts: 'artifacts/ion-wasm-binaries.zip'
                         }
                     }
                 }

@@ -9,7 +9,7 @@ let
 in
 with import microhttpdmy;
 pkgs.llvmPackages_16.stdenv.mkDerivation {
-  pname = "ton";
+  pname = "ion";
   version = "dev-lib";
 
   src = ./.;
