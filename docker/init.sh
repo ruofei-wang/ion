@@ -31,10 +31,10 @@ else
     exit 1
 fi
 
-if [ ! -f "/var/ton-work/db/config.json" ]; then
+if [ ! -f "/var/ion-work/db/config.json" ]; then
   echo -e "\e[1;32m[+]\e[0m Initializing validator-engine:"
-  echo validator-engine -C /var/ton-work/db/ton-global.config --db /var/ton-work/db --ip "$PUBLIC_IP:$VALIDATOR_PORT"
-  validator-engine -C /var/ton-work/db/ton-global.config --db /var/ton-work/db --ip "$PUBLIC_IP:$VALIDATOR_PORT"
+  echo validator-engine -C /var/ion-work/db/ion-global.config --db /var/ion-work/db --ip "$PUBLIC_IP:$VALIDATOR_PORT"
+  validator-engine -C /var/ion-work/db/ion-global.config --db /var/ion-work/db --ip "$PUBLIC_IP:$VALIDATOR_PORT"
   test $? -eq 0 || { echo "Cannot initialize validator-engine"; exit 2; }
 fi
 
@@ -42,7 +42,7 @@ if [ ! -z "$DUMP_URL" ]; then
     echo -e "\e[1;32m[+]\e[0m Using provided dump $DUMP_URL"
     if [ ! -f "dump_downloaded" ]; then
       echo -e "\e[1;32m[+]\e[0m Downloading dump..."
-      curl --retry 10 --retry-delay 30 -Ls $DUMP_URL | pv | plzip -d -n8 | tar -xC /var/ton-work/db
+      curl --retry 10 --retry-delay 30 -Ls $DUMP_URL | pv | plzip -d -n8 | tar -xC /var/ion-work/db
       touch dump_downloaded
     else
       echo -e "\e[1;32m[+]\e[0m Dump has been already used."
@@ -102,9 +102,9 @@ else
     echo -e "\e[1;32m[+]\e[0m Generated client private certificate $CLIENT_ID1 $CLIENT_ID2"
     echo -e "\e[1;32m[+]\e[0m Generated client public certificate"
     # Adding client permissions
-    sed -e "s/CONSOLE-PORT/\"$(printf "%q" $CONSOLE_PORT)\"/g" -e "s~SERVER-ID~\"$(printf "%q" $SERVER_ID2)\"~g" -e "s~CLIENT-ID~\"$(printf "%q" $CLIENT_ID2)\"~g" /var/ton-work/scripts/control.template > control.new
-    sed -e "s~\"control\"\ \:\ \[~$(printf "%q" $(cat control.new))~g" /var/ton-work/db/config.json > config.json.new
-    mv config.json.new /var/ton-work/db/config.json
+    sed -e "s/CONSOLE-PORT/\"$(printf "%q" $CONSOLE_PORT)\"/g" -e "s~SERVER-ID~\"$(printf "%q" $SERVER_ID2)\"~g" -e "s~CLIENT-ID~\"$(printf "%q" $CLIENT_ID2)\"~g" /var/ion-work/scripts/control.template > control.new
+    sed -e "s~\"control\"\ \:\ \[~$(printf "%q" $(cat control.new))~g" /var/ion-work/db/config.json > config.json.new
+    mv config.json.new /var/ion-work/db/config.json
 fi
 
 # Liteserver
@@ -127,8 +127,8 @@ else
         fi
 
         LITESERVERS=$(printf "%q" "\"liteservers\":[{\"id\":\"$LITESERVER_ID2\",\"port\":\"$LITE_PORT\"}")
-        sed -e "s~\"liteservers\"\ \:\ \[~$LITESERVERS~g" /var/ton-work/db/config.json > config.json.liteservers
-        mv config.json.liteservers /var/ton-work/db/config.json
+        sed -e "s~\"liteservers\"\ \:\ \[~$LITESERVERS~g" /var/ion-work/db/config.json > config.json.liteservers
+        mv config.json.liteservers /var/ion-work/db/config.json
     fi
 fi
 
