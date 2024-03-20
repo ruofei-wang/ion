@@ -10,10 +10,10 @@ fi
 # global config
 if [ ! -z "$GLOBAL_CONFIG_URL" ]; then
     echo -e "\e[1;32m[+]\e[0m Downloading provided global config."
-    wget -q $GLOBAL_CONFIG_URL -O /var/ton-work/db/ton-global.config
+    wget -q $GLOBAL_CONFIG_URL -O /var/ion-work/db/ion-global.config
 else
     echo -e "\e[1;33m[=]\e[0m No global config provided, downloading mainnet default."
-    wget -q https://api.tontech.io/ton/wallet-mainnet.autoconf.json -O /var/ton-work/db/ton-global.config
+    #wget -q https://api.tontech.io/ton/wallet-mainnet.autoconf.json -O /var/ion-work/db/ion-global.config
 fi
 
 if [ -z "$VALIDATOR_PORT" ]; then
@@ -91,7 +91,7 @@ else
     echo -e "\e[1;32m[+]\e[0m Generating and installing server certificate for remote control"
     read -r SERVER_ID1 SERVER_ID2 <<< $(generate-random-id -m keys -n server)
     echo "Server IDs: $SERVER_ID1 $SERVER_ID2"
-    cp server /var/ton-work/db/keyring/$SERVER_ID1
+    cp server /var/ion-work/db/keyring/$SERVER_ID1
 fi
 
 # Generating client certificate
@@ -117,7 +117,7 @@ else
         echo -e "\e[1;32m[+]\e[0m Generating and installing liteserver certificate for remote control"
         read -r LITESERVER_ID1 LITESERVER_ID2 <<< $(generate-random-id -m keys -n liteserver)
         echo "Liteserver IDs: $LITESERVER_ID1 $LITESERVER_ID2"
-        cp liteserver /var/ton-work/db/keyring/$LITESERVER_ID1
+        cp liteserver /var/ion-work/db/keyring/$LITESERVER_ID1
 
         if [ -z "$LITE_PORT" ]; then
             LITE_PORT=30003
@@ -133,5 +133,5 @@ else
 fi
 
 echo -e "\e[1;32m[+]\e[0m Starting validator-engine:"
-echo validator-engine -c /var/ton-work/db/config.json -C /var/ton-work/db/ton-global.config --db /var/ton-work/db --state-ttl $STATE_TTL --archive-ttl $ARCHIVE_TTL --threads $THREADS --verbosity $VERBOSITY $CUSTOM_ARG
-exec validator-engine -c /var/ton-work/db/config.json -C /var/ton-work/db/ton-global.config --db /var/ton-work/db --state-ttl $STATE_TTL --archive-ttl $ARCHIVE_TTL --threads $THREADS --verbosity $VERBOSITY $CUSTOM_ARG
+echo validator-engine -c /var/ion-work/db/config.json -C /var/ion-work/db/ion-global.config --db /var/ion-work/db --state-ttl $STATE_TTL --archive-ttl $ARCHIVE_TTL --threads $THREADS --verbosity $VERBOSITY $CUSTOM_ARG
+exec validator-engine -c /var/ion-work/db/config.json -C /var/ion-work/db/ion-global.config --db /var/ion-work/db --state-ttl $STATE_TTL --archive-ttl $ARCHIVE_TTL --threads $THREADS --verbosity $VERBOSITY $CUSTOM_ARG
