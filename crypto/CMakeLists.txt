@@ -479,10 +479,17 @@ if (NOT CMAKE_CROSSCOMPILING OR USE_EMSCRIPTEN)
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_DEST_FIF}
     )
     set(ARG_DEST_CPP "${ARG_DEST}.cpp")
+
+    if (WIN32)
+      set(ARG_LIB_DIR "fift/lib@smartcont")
+    else()
+      set(ARG_LIB_DIR "fift/lib:smartcont")
+    endif()
+
     add_custom_command(
       COMMENT "Generate ${ARG_DEST_CPP}"
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-      COMMAND fift -Ifift/lib:smartcont -s asm-to-cpp.fif ${ARG_DEST_FIF} ${ARG_DEST_CPP} ${ARG_NAME}
+      COMMAND fift -I${ARG_LIB_DIR} -s asm-to-cpp.fif ${ARG_DEST_FIF} ${ARG_DEST_CPP} ${ARG_NAME}
       MAIN_DEPENDENCY ${ARG_SOURCE}
       DEPENDS fift ${ARG_DEST_FIF} smartcont/asm-to-cpp.fif fift/lib/Asm.fif
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_DEST_CPP}
@@ -562,4 +569,4 @@ endif()
 
 install(TARGETS fift func create-state tlbc RUNTIME DESTINATION bin)
 install(DIRECTORY fift/lib/ DESTINATION lib/fift)
-install(DIRECTORY smartcont DESTINATION share/ton)
+install(DIRECTORY smartcont DESTINATION share/ion)
