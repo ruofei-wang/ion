@@ -27,8 +27,7 @@ RUN apt-get update && \
     apt-get install -y wget curl libatomic1 openssl libsecp256k1-dev libsodium-dev libmicrohttpd-dev liblz4-dev libjemalloc-dev htop net-tools netcat iptraf-ng jq tcpdump pv plzip && \
     rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /var/ion-work/db && \
-    mkdir -p /var/ion-work/db/static
+RUN mkdir -p /var/ion-work/db /var/ion-work/scripts /usr/share/ion/smartcont/ /usr/lib/fift/
 
 COPY --from=builder /ion/build/storage/storage-daemon/storage-daemon /usr/local/bin/
 COPY --from=builder /ion/build/storage/storage-daemon/storage-daemon-cli /usr/local/bin/
@@ -36,9 +35,13 @@ COPY --from=builder /ion/build/lite-client/lite-client /usr/local/bin/
 COPY --from=builder /ion/build/validator-engine/validator-engine /usr/local/bin/
 COPY --from=builder /ion/build/validator-engine-console/validator-engine-console /usr/local/bin/
 COPY --from=builder /ion/build/utils/generate-random-id /usr/local/bin/
+COPY --from=builder /ion/build/crypto/fift /usr/local/bin/
+COPY --from=builder /ion/build/crypto/func /usr/local/bin/
+COPY --from=builder /ion/crypto/smartcont/* /usr/share/ion/smartcont/
+COPY --from=builder /ion/crypto/fift/lib/* /usr/lib/fift/
 
 WORKDIR /var/ion-work/db
-COPY ./docker/init.sh ./docker/control.template /var/ton-work/scripts/
-RUN chmod +x /var/ton-work/scripts/init.sh
+COPY ./docker/init.sh ./docker/control.template /var/ion-work/scripts/
+RUN chmod +x /var/ion-work/scripts/init.sh
 
-ENTRYPOINT ["/var/ion-work/db/init.sh"]
+ENTRYPOINT ["/var/ion-work/scripts/init.sh"]
