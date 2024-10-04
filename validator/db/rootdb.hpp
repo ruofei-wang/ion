@@ -63,6 +63,7 @@ class RootDb : public Db {
                          td::Promise<td::Ref<ShardState>> promise) override;
   void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) override;
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) override;
+  void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) override;
 
   void store_block_handle(BlockHandle handle, td::Promise<td::Unit> promise) override;
   void get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) override;
@@ -84,6 +85,8 @@ class RootDb : public Db {
   void store_zero_state_file(BlockIdExt block_id, td::BufferSlice state, td::Promise<td::Unit> promise) override;
   void get_zero_state_file(BlockIdExt block_id, td::Promise<td::BufferSlice> promise) override;
   void check_zero_state_file_exists(BlockIdExt block_id, td::Promise<bool> promise) override;
+  void get_previous_persistent_state_files(
+      BlockSeqno cur_mc_seqno, td::Promise<std::vector<std::pair<std::string, ShardIdFull>>> promise) override;
 
   void try_get_static_file(FileHash file_hash, td::Promise<td::BufferSlice> promise) override;
 

@@ -144,7 +144,26 @@ adnl.message.part hash:int256 total_size:int offset:int data:bytes = adnl.Messag
 ---types---
 
 adnl.db.node.key local_id:int256 peer_id:int256 = adnl.db.Key;
-adnl.db.node.value date:int id:PublicKey addr_list:adnl.addressList priority_addr_list:adnl.addressList = adnl.db.node.Value; 
+adnl.db.node.value date:int id:PublicKey addr_list:adnl.addressList priority_addr_list:adnl.addressList = adnl.db.node.Value;
+
+adnl.stats.packets ts_start:double ts_end:double
+    in_packets:long in_bytes:long in_packets_channel:long in_bytes_channel:long
+    out_packets:long out_bytes:long out_packets_channel:long out_bytes_channel:long
+    out_expired_messages:long out_expired_bytes:long = adnl.stats.Packets;
+adnl.stats.peerPair local_id:int256 peer_id:int256 ip_str:string
+    packets_recent:adnl.stats.packets packets_total:adnl.stats.packets
+    last_out_packet_ts:double last_in_packet_ts:double
+    connection_ready:Bool channel_status:int try_reinit_at:double
+    out_queue_messages:long out_queue_bytes:long
+    = adnl.stats.PeerPair;
+adnl.stats.ipPackets ip_str:string packets:long = adnl.stats.IpPackets;
+adnl.stats.localIdPackets ts_start:double ts_end:double
+    decrypted_packets:(vector adnl.stats.ipPackets) dropped_packets:(vector adnl.stats.ipPackets) = adnl.stats.LocalIdPackets;
+adnl.stats.localId short_id:int256
+    current_decrypt:(vector adnl.stats.ipPackets)
+    packets_recent:adnl.stats.localIdPackets packets_total:adnl.stats.localIdPackets
+    peers:(vector adnl.stats.peerPair) = adnl.stats.LocalId;
+adnl.stats timestamp:double local_ids:(vector adnl.stats.localId) = adnl.Stats;
 
 ---functions---
 
@@ -388,8 +407,8 @@ tonNode.newShardBlock block:tonNode.blockIdExt cc_seqno:int data:bytes = tonNode
 
 tonNode.blockBroadcastCompressed.data signatures:(vector tonNode.blockSignature) proof_data:bytes = tonNode.blockBroadcaseCompressed.Data;
 
-tonNode.blockBroadcast id:tonNode.blockIdExt catchain_seqno:int validator_set_hash:int 
-              signatures:(vector tonNode.blockSignature) 
+tonNode.blockBroadcast id:tonNode.blockIdExt catchain_seqno:int validator_set_hash:int
+              signatures:(vector tonNode.blockSignature)
               proof:bytes data:bytes = tonNode.Broadcast;
 tonNode.blockBroadcastCompressed id:tonNode.blockIdExt catchain_seqno:int validator_set_hash:int
               flags:# compressed:bytes = tonNode.Broadcast;
@@ -606,6 +625,12 @@ engine.validator.customOverlayNode adnl_id:int256 msg_sender:Bool msg_sender_pri
 engine.validator.customOverlay name:string nodes:(vector engine.validator.customOverlayNode) = engine.validator.CustomOverlay;
 engine.validator.customOverlaysConfig overlays:(vector engine.validator.customOverlay) = engine.validator.CustomOverlaysConfig;
 
+engine.validator.collatorOptions
+  deferring_enabled:Bool defer_messages_after:int defer_out_queue_size_limit:long
+  dispatch_phase_2_max_total:int dispatch_phase_3_max_total:int
+  dispatch_phase_2_max_per_initiator:int dispatch_phase_3_max_per_initiator:int
+  whitelist:(vector string) prioritylist:(vector string) = engine.validator.CollatorOptions;
+
 ---functions---
 ---types---
 
@@ -653,7 +678,7 @@ engine.validator.onePerfTimerStat time:int min:double avg:double max:double = en
 engine.validator.perfTimerStatsByName name:string stats:(vector engine.validator.OnePerfTimerStat) = engine.validator.PerfTimerStatsByName;
 engine.validator.perfTimerStats stats:(vector engine.validator.PerfTimerStatsByName) = engine.validator.PerfTimerStats;
 
-engine.validator.shardOutQueueSize size:int = engine.validator.ShardOutQueueSize;
+engine.validator.shardOutQueueSize size:long = engine.validator.ShardOutQueueSize;
 
 
 ---functions---
@@ -715,6 +740,11 @@ engine.validator.showCustomOverlays = engine.validator.CustomOverlaysConfig;
 
 engine.validator.setStateSerializerEnabled enabled:Bool = engine.validator.Success;
 
+engine.validator.setCollatorOptionsJson json:string = engine.validator.Success;
+engine.validator.getCollatorOptionsJson = engine.validator.JsonConfig;
+
+engine.validator.getAdnlStats = adnl.Stats;
+
 ---types---
 
 storage.pong = storage.Pong;
@@ -761,13 +791,19 @@ http.server.config dhs:(vector http.server.dnsEntry) local_hosts:(vector http.se
 
 ---types---
 
-validatorSession.statsProducer id:int256 candidate_id:int256 block_status:int comment:string
-  block_timestamp:double is_accepted:Bool is_ours:Bool got_submit_at:double
+validatorSession.collationStats bytes:int gas:int lt_delta:int cat_bytes:int cat_gas:int cat_lt_delta:int
+  limits_log:string ext_msgs_total:int ext_msgs_filtered:int ext_msgs_accepted:int ext_msgs_rejected:int = validadorSession.CollationStats;
+
+validatorSession.statsProducer id:int256 candidate_id:int256 block_status:int root_hash:int256 file_hash:int256
+  comment:string block_timestamp:double is_accepted:Bool is_ours:Bool got_submit_at:double
   collation_time:double collated_at:double collation_cached:Bool
+  collation_work_time:double collation_cpu_work_time:double
+  collation_stats:validatorSession.collationStats
   validation_time:double validated_at:double validation_cached:Bool
+  validation_work_time:double validation_cpu_work_time:double
   gen_utime:double
-  approved_weight:long approved_33pct_at:double approved_66pct_at:double
-  signed_weight:long signed_33pct_at:double signed_66pct_at:double
+  approved_weight:long approved_33pct_at:double approved_66pct_at:double approvers:string
+  signed_weight:long signed_33pct_at:double signed_66pct_at:double signers:string
   serialize_time:double deserialize_time:double serialized_size:int = validatorSession.StatsProducer;
 
 validatorSession.statsRound timestamp:double producers:(vector validatorSession.statsProducer) = validatorSession.StatsRound;
@@ -778,8 +814,13 @@ validatorSession.stats success:Bool id:tonNode.blockIdExt timestamp:double self:
     first_round:int rounds:(vector validatorSession.statsRound) = validatorSession.Stats;
 
 validatorSession.newValidatorGroupStats.node id:int256 weight:long = validatorSession.newValidatorGroupStats.Node;
-validatorSession.newValidatorGroupStats session_id:int256 workchain:int shard:long cc_seqno:int timestamp:double
+validatorSession.newValidatorGroupStats session_id:int256 workchain:int shard:long cc_seqno:int
+    last_key_block_seqno:int timestamp:double
     self_idx:int nodes:(vector validatorSession.newValidatorGroupStats.node) = validatorSession.NewValidatorGroupStats;
+
+validatorSession.endValidatorGroupStats.node id:int256 catchain_blocks:int = validatorSession.endValidatorGroupStats.Node;
+validatorSession.endValidatorGroupStats session_id:int256 timestamp:double
+    nodes:(vector validatorSession.endValidatorGroupStats.node) = validatorSession.EndValidatorGroupStats;
 
 ---functions---
 

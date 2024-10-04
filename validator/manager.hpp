@@ -38,6 +38,7 @@
 #include <map>
 #include <set>
 #include <list>
+#include <queue>
 
 namespace ton {
 
@@ -261,7 +262,7 @@ class ValidatorManagerImpl : public ValidatorManager {
                                           BlockSeqno last_key_block_seqno,
                                           const validatorsession::ValidatorSessionOptions &opts);
   td::actor::ActorOwn<ValidatorGroup> create_validator_group(ValidatorSessionId session_id, ShardIdFull shard,
-                                                             td::Ref<ValidatorSet> validator_set,
+                                                             td::Ref<ValidatorSet> validator_set, BlockSeqno key_seqno,
                                                              validatorsession::ValidatorSessionOptions opts,
                                                              bool create_catchain);
   struct ValidatorGroupEntry {
@@ -371,6 +372,8 @@ class ValidatorManagerImpl : public ValidatorManager {
                             td::Promise<td::BufferSlice> promise) override;
   void get_persistent_state_slice(BlockIdExt block_id, BlockIdExt masterchain_block_id, td::int64 offset,
                                   td::int64 max_length, td::Promise<td::BufferSlice> promise) override;
+  void get_previous_persistent_state_files(
+      BlockSeqno cur_mc_seqno, td::Promise<std::vector<std::pair<std::string, ShardIdFull>>> promise) override;
   void get_block_proof(BlockHandle handle, td::Promise<td::BufferSlice> promise) override;
   void get_block_proof_link(BlockHandle block_id, td::Promise<td::BufferSlice> promise) override;
   void get_key_block_proof(BlockIdExt block_id, td::Promise<td::BufferSlice> promise) override;
@@ -587,10 +590,11 @@ class ValidatorManagerImpl : public ValidatorManager {
 
   void log_validator_session_stats(BlockIdExt block_id, validatorsession::ValidatorSessionStats stats) override;
   void log_new_validator_group_stats(validatorsession::NewValidatorGroupStats stats) override;
+  void log_end_validator_group_stats(validatorsession::EndValidatorGroupStats stats) override;
 
   void update_options(td::Ref<ValidatorManagerOptions> opts) override;
 
-  void get_out_msg_queue_size(BlockIdExt block_id, td::Promise<td::uint32> promise) override {
+  void get_out_msg_queue_size(BlockIdExt block_id, td::Promise<td::uint64> promise) override {
     if (queue_size_counter_.empty()) {
       if (last_masterchain_state_.is_null()) {
         promise.set_error(td::Status::Error(ErrorCode::notready, "not ready"));
@@ -706,6 +710,21 @@ class ValidatorManagerImpl : public ValidatorManager {
   td::uint32 ls_stats_check_ext_messages_{0};
 
   td::actor::ActorOwn<CandidatesBuffer> candidates_buffer_;
+
+  struct RecordedBlockStats {
+    double collator_work_time_ = -1.0;
+    double collator_cpu_work_time_ = -1.0;
+    td::optional<CollationStats> collator_stats_;
+    double validator_work_time_ = -1.0;
+    double validator_cpu_work_time_ = -1.0;
+  };
+  std::map<BlockIdExt, RecordedBlockStats> recorded_block_stats_;
+  std::queue<BlockIdExt> recorded_block_stats_lru_;
+
+  void record_collate_query_stats(BlockIdExt block_id, double work_time, double cpu_work_time,
+                                  CollationStats stats) override;
+  void record_validate_query_stats(BlockIdExt block_id, double work_time, double cpu_work_time) override;
+  RecordedBlockStats &new_block_stats_record(BlockIdExt block_id);
 };
 
 }  // namespace validator

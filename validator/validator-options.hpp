@@ -141,8 +141,17 @@ struct ValidatorManagerOptionsImpl : public ValidatorManagerOptions {
   td::optional<double> get_catchain_max_block_delay() const override {
     return catchain_max_block_delay_;
   }
+  td::optional<double> get_catchain_max_block_delay_slow() const override {
+    return catchain_max_block_delay_slow_;
+  }
   bool get_state_serializer_enabled() const override {
     return state_serializer_enabled_;
+  }
+  td::Ref<CollatorOptions> get_collator_options() const override {
+    return collator_options_;
+  }
+  bool get_fast_state_serializer_enabled() const override {
+    return fast_state_serializer_enabled_;
   }
 
   void set_zero_block_id(BlockIdExt block_id) override {
@@ -224,8 +233,17 @@ struct ValidatorManagerOptionsImpl : public ValidatorManagerOptions {
   void set_catchain_max_block_delay(double value) override {
     catchain_max_block_delay_ = value;
   }
+  void set_catchain_max_block_delay_slow(double value) override {
+    catchain_max_block_delay_slow_ = value;
+  }
   void set_state_serializer_enabled(bool value) override {
     state_serializer_enabled_ = value;
+  }
+  void set_collator_options(td::Ref<CollatorOptions> value) override {
+    collator_options_ = std::move(value);
+  }
+  void set_fast_state_serializer_enabled(bool value) override {
+    fast_state_serializer_enabled_ = value;
   }
 
   ValidatorManagerOptionsImpl *make_copy() const override {
@@ -277,8 +295,10 @@ struct ValidatorManagerOptionsImpl : public ValidatorManagerOptions {
   td::optional<td::uint64> celldb_cache_size_;
   bool celldb_direct_io_ = false;
   bool celldb_preload_all_ = false;
-  td::optional<double> catchain_max_block_delay_;
+  td::optional<double> catchain_max_block_delay_, catchain_max_block_delay_slow_;
   bool state_serializer_enabled_ = true;
+  td::Ref<CollatorOptions> collator_options_{true};
+  bool fast_state_serializer_enabled_ = false;
 };
 
 }  // namespace validator

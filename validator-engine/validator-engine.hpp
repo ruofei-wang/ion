@@ -214,12 +214,13 @@ class ValidatorEngine : public td::actor::Actor {
   td::optional<td::uint64> celldb_cache_size_ = 1LL << 30;
   bool celldb_direct_io_ = false;
   bool celldb_preload_all_ = false;
-  td::optional<double> catchain_max_block_delay_;
+  td::optional<double> catchain_max_block_delay_, catchain_max_block_delay_slow_;
   bool read_config_ = false;
   bool started_keyring_ = false;
   bool started_ = false;
   ton::BlockSeqno truncate_seqno_{0};
   std::string session_logs_file_;
+  bool fast_state_serializer_enabled_ = false;
 
   std::set<ton::CatchainSeqno> unsafe_catchains_;
   std::map<ton::BlockSeqno, std::pair<ton::CatchainSeqno, td::uint32>> unsafe_catchain_rotations_;
@@ -298,6 +299,12 @@ class ValidatorEngine : public td::actor::Actor {
   }
   void set_catchain_max_block_delay(double value) {
     catchain_max_block_delay_ = value;
+  }
+  void set_catchain_max_block_delay_slow(double value) {
+    catchain_max_block_delay_slow_ = value;
+  }
+  void set_fast_state_serializer_enabled(bool value) {
+    fast_state_serializer_enabled_ = value;
   }
   void start_up() override;
   ValidatorEngine() {
@@ -384,12 +391,16 @@ class ValidatorEngine : public td::actor::Actor {
   std::string custom_overlays_config_file() const {
     return db_root_ + "/custom-overlays.json";
   }
+  std::string collator_options_file() const {
+    return db_root_ + "/collator-options.json";
+  }
 
   void load_custom_overlays_config();
   td::Status write_custom_overlays_config();
   void add_custom_overlay_to_config(
       ton::tl_object_ptr<ton::ton_api::engine_validator_customOverlay> overlay, td::Promise<td::Unit> promise);
   void del_custom_overlay_from_config(std::string name, td::Promise<td::Unit> promise);
+  void load_collator_options();
 
   void check_key(ton::PublicKeyHash id, td::Promise<td::Unit> promise);
 
@@ -476,6 +487,12 @@ class ValidatorEngine : public td::actor::Actor {
   void run_control_query(ton::ton_api::engine_validator_showCustomOverlays &query, td::BufferSlice data,
                          ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise);
   void run_control_query(ton::ton_api::engine_validator_setStateSerializerEnabled &query, td::BufferSlice data,
+                         ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise);
+  void run_control_query(ton::ton_api::engine_validator_setCollatorOptionsJson &query, td::BufferSlice data,
+                         ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise);
+  void run_control_query(ton::ton_api::engine_validator_getCollatorOptionsJson &query, td::BufferSlice data,
+                         ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise);
+  void run_control_query(ton::ton_api::engine_validator_getAdnlStats &query, td::BufferSlice data,
                          ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise);
   template <class T>
   void run_control_query(T &query, td::BufferSlice data, ton::PublicKeyHash src, td::uint32 perm,

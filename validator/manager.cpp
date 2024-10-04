@@ -44,6 +44,7 @@
 #include "td/utils/JsonBuilder.h"
 
 #include "common/delay.h"
+#include "td/utils/filesystem.h"
 
 #include "validator/stats-merger.h"
 
@@ -306,6 +307,11 @@ void ValidatorManagerImpl::get_persistent_state_slice(BlockIdExt block_id, Block
                                                       td::Promise<td::BufferSlice> promise) {
   td::actor::send_closure(db_, &Db::get_persistent_state_file_slice, block_id, masterchain_block_id, offset, max_length,
                           std::move(promise));
+}
+
+void ValidatorManagerImpl::get_previous_persistent_state_files(
+    BlockSeqno cur_mc_seqno, td::Promise<std::vector<std::pair<std::string, ShardIdFull>>> promise) {
+  td::actor::send_closure(db_, &Db::get_previous_persistent_state_files, cur_mc_seqno, std::move(promise));
 }
 
 void ValidatorManagerImpl::get_block_proof(BlockHandle handle, td::Promise<td::BufferSlice> promise) {
@@ -1714,6 +1720,8 @@ void ValidatorManagerImpl::read_gc_list(std::vector<ValidatorSessionId> list) {
 
   serializer_ =
       td::actor::create_actor<AsyncStateSerializer>("serializer", last_key_block_handle_->id(), opts_, actor_id(this));
+  td::actor::send_closure(serializer_, &AsyncStateSerializer::update_last_known_key_block_ts,
+                          last_key_block_handle_->unix_time());
 
   if (last_masterchain_block_handle_->inited_next_left()) {
     auto b = last_masterchain_block_handle_->one_next(true);
@@ -1903,6 +1911,10 @@ void ValidatorManagerImpl::new_masterchain_block() {
       last_known_key_block_handle_ = last_key_block_handle_;
       callback_->new_key_block(last_key_block_handle_);
     }
+    if (!serializer_.empty()) {
+      td::actor::send_closure(serializer_, &AsyncStateSerializer::update_last_known_key_block_ts,
+                              last_key_block_handle_->unix_time());
+    }
   }
 
   update_shards();
@@ -2033,7 +2045,7 @@ void ValidatorManagerImpl::update_shards() {
             }
             new_validator_groups_.emplace(val_group_id, std::move(it2->second));
           } else {
-            auto G = create_validator_group(val_group_id, shard, val_set, opts, started_);
+            auto G = create_validator_group(val_group_id, shard, val_set, key_seqno, opts, started_);
             if (!G.empty()) {
               td::actor::send_closure(G, &ValidatorGroup::start, prev, last_masterchain_block_id_,
                                       last_masterchain_state_->get_unix_time());
@@ -2089,7 +2101,7 @@ void ValidatorManagerImpl::update_shards() {
             }
             new_validator_groups_.emplace(val_group_id, std::move(it2->second));
           } else {
-            auto G = create_validator_group(val_group_id, shard, val_set, opts, started_);
+            auto G = create_validator_group(val_group_id, shard, val_set, key_seqno, opts, started_);
             if (!G.empty()) {
               td::actor::send_closure(G, &ValidatorGroup::start, prev, last_masterchain_block_id_,
                                       last_masterchain_state_->get_unix_time());
@@ -2116,7 +2128,7 @@ void ValidatorManagerImpl::update_shards() {
       } else {
         new_next_validator_groups_.emplace(
             val_group_id,
-            ValidatorGroupEntry{create_validator_group(val_group_id, shard, val_set, opts, started_), shard});
+            ValidatorGroupEntry{create_validator_group(val_group_id, shard, val_set, key_seqno, opts, started_), shard});
       }
     }
   }
@@ -2156,7 +2168,13 @@ void ValidatorManagerImpl::update_shards() {
     });
     td::actor::send_closure(db_, &Db::update_destroyed_validator_sessions, gc_list_, std::move(P));
   }
-}  // namespace validator
+
+  if (!serializer_.empty()) {
+    td::actor::send_closure(
+        serializer_, &AsyncStateSerializer::auto_disable_serializer,
+        !validator_groups_.empty() && last_masterchain_state_->get_global_id() == -239);  // mainnet only
+  }
+}
 
 void ValidatorManagerImpl::written_destroyed_validator_sessions(std::vector<td::actor::ActorId<ValidatorGroup>> list) {
   for (auto &v : list) {
@@ -2219,7 +2237,7 @@ ValidatorSessionId ValidatorManagerImpl::get_validator_set_id(ShardIdFull shard,
 }
 
 td::actor::ActorOwn<ValidatorGroup> ValidatorManagerImpl::create_validator_group(
-    ValidatorSessionId session_id, ShardIdFull shard, td::Ref<ValidatorSet> validator_set,
+    ValidatorSessionId session_id, ShardIdFull shard, td::Ref<ValidatorSet> validator_set, BlockSeqno key_seqno,
     validatorsession::ValidatorSessionOptions opts, bool init_session) {
   if (check_gc_list_.count(session_id) == 1) {
     return td::actor::ActorOwn<ValidatorGroup>{};
@@ -2230,8 +2248,8 @@ td::actor::ActorOwn<ValidatorGroup> ValidatorManagerImpl::create_validator_group
     auto validator_id = get_validator(shard, validator_set);
     CHECK(!validator_id.is_zero());
     auto G = td::actor::create_actor<ValidatorGroup>(
-        "validatorgroup", shard, validator_id, session_id, validator_set, opts, keyring_, adnl_, rldp_, overlays_,
-        db_root_, actor_id(this), init_session,
+        "validatorgroup", shard, validator_id, session_id, validator_set, key_seqno, opts, keyring_, adnl_, rldp_,
+        overlays_, db_root_, actor_id(this), init_session,
         opts_->check_unsafe_resync_allowed(validator_set->get_catchain_seqno()), opts_);
     return G;
   }
@@ -2749,6 +2767,23 @@ void ValidatorManagerImpl::prepare_stats(td::Promise<std::vector<std::pair<std::
     vec.emplace_back("rotatemasterchainblock", last_rotate_block_id_.to_str());
     //vec.emplace_back("shardclientmasterchainseqno", td::to_string(min_confirmed_masterchain_seqno_));
     vec.emplace_back("stateserializermasterchainseqno", td::to_string(state_serializer_masterchain_seqno_));
+
+    td::actor::send_closure(db_, &Db::get_last_deleted_mc_state,
+                            [promise = merger.make_promise(""),
+                             gc_seqno = gc_masterchain_handle_->id().seqno()](td::Result<BlockSeqno> R) mutable {
+                              TRY_RESULT_PROMISE(promise, seqno, std::move(R));
+                              std::string s;
+                              if (seqno == 0) {
+                                s = "none";
+                              } else if (seqno <= gc_seqno) {
+                                s = PSTRING() << seqno << " (gc_seqno-" << (gc_seqno - seqno) << ")";
+                              } else {
+                                s = PSTRING() << seqno << " (gc_seqno+" << (seqno - gc_seqno) << ")";
+                              }
+                              std::vector<std::pair<std::string, std::string>> vec;
+                              vec.emplace_back("lastgcdmasterchainstate", std::move(s));
+                              promise.set_value(std::move(vec));
+                            });
   }
 
   if (!shard_client_.empty()) {
@@ -2820,13 +2855,35 @@ void ValidatorManagerImpl::log_validator_session_stats(BlockIdExt block_id,
   for (const auto &round : stats.rounds) {
     std::vector<tl_object_ptr<ton_api::validatorSession_statsProducer>> producers;
     for (const auto &producer : round.producers) {
+      BlockIdExt cur_block_id{block_id.id, producer.root_hash, producer.file_hash};
+      auto it = recorded_block_stats_.find(cur_block_id);
+      tl_object_ptr<ton_api::validatorSession_collationStats> collation_stats;
+      if (it != recorded_block_stats_.end() && it->second.collator_stats_) {
+        auto &stats = it->second.collator_stats_.value();
+        collation_stats = create_tl_object<ton_api::validatorSession_collationStats>(
+            stats.bytes, stats.gas, stats.lt_delta, stats.cat_bytes, stats.cat_gas, stats.cat_lt_delta,
+            stats.limits_log, stats.ext_msgs_total, stats.ext_msgs_filtered, stats.ext_msgs_accepted,
+            stats.ext_msgs_rejected);
+      }
+      std::string approvers, signers;
+      for (bool x : producer.approvers) {
+        approvers += (x ? '1' : '0');
+      }
+      for (bool x : producer.signers) {
+        signers += (x ? '1' : '0');
+      }
       producers.push_back(create_tl_object<ton_api::validatorSession_statsProducer>(
-          producer.id.bits256_value(), producer.candidate_id, producer.block_status, producer.comment,
-          producer.block_timestamp, producer.is_accepted, producer.is_ours, producer.got_submit_at,
-          producer.collation_time, producer.collated_at, producer.collation_cached, producer.validation_time,
-          producer.validated_at, producer.validation_cached, producer.gen_utime, producer.approved_weight,
-          producer.approved_33pct_at, producer.approved_66pct_at, producer.signed_weight, producer.signed_33pct_at,
-          producer.signed_66pct_at, producer.serialize_time, producer.deserialize_time, producer.serialized_size));
+          producer.id.bits256_value(), producer.candidate_id, producer.block_status, producer.root_hash,
+          producer.file_hash, producer.comment, producer.block_timestamp, producer.is_accepted, producer.is_ours,
+          producer.got_submit_at, producer.collation_time, producer.collated_at, producer.collation_cached,
+          it == recorded_block_stats_.end() ? -1.0 : it->second.collator_work_time_,
+          it == recorded_block_stats_.end() ? -1.0 : it->second.collator_cpu_work_time_, std::move(collation_stats),
+          producer.validation_time, producer.validated_at, producer.validation_cached,
+          it == recorded_block_stats_.end() ? -1.0 : it->second.validator_work_time_,
+          it == recorded_block_stats_.end() ? -1.0 : it->second.validator_cpu_work_time_, producer.gen_utime,
+          producer.approved_weight, producer.approved_33pct_at, producer.approved_66pct_at, std::move(approvers),
+          producer.signed_weight, producer.signed_33pct_at, producer.signed_66pct_at, std::move(signers),
+          producer.serialize_time, producer.deserialize_time, producer.serialized_size));
     }
     rounds.push_back(create_tl_object<ton_api::validatorSession_statsRound>(round.timestamp, std::move(producers)));
   }
@@ -2858,8 +2915,8 @@ void ValidatorManagerImpl::log_new_validator_group_stats(validatorsession::NewVa
         create_tl_object<ton_api::validatorSession_newValidatorGroupStats_node>(node.id.bits256_value(), node.weight));
   }
   auto obj = create_tl_object<ton_api::validatorSession_newValidatorGroupStats>(
-      stats.session_id, stats.shard.workchain, stats.shard.shard, stats.cc_seqno, stats.timestamp, stats.self_idx,
-      std::move(nodes));
+      stats.session_id, stats.shard.workchain, stats.shard.shard, stats.cc_seqno, stats.last_key_block_seqno,
+      stats.timestamp, stats.self_idx, std::move(nodes));
   auto s = td::json_encode<std::string>(td::ToJson(*obj.get()), false);
   s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return c == '\n' || c == '\r'; }), s.end());
 
@@ -2868,7 +2925,31 @@ void ValidatorManagerImpl::log_new_validator_group_stats(validatorsession::NewVa
   file << s << "\n";
   file.close();
 
-  LOG(INFO) << "Writing new validator group stats for " << stats.shard.to_str();
+  LOG(INFO) << "Writing new validator group stats for " << stats.session_id << " shard=" << stats.shard.to_str()
+            << " cc_seqno=" << stats.cc_seqno;
+}
+
+void ValidatorManagerImpl::log_end_validator_group_stats(validatorsession::EndValidatorGroupStats stats) {
+  std::string fname = opts_->get_session_logs_file();
+  if (fname.empty()) {
+    return;
+  }
+  std::vector<tl_object_ptr<ton_api::validatorSession_endValidatorGroupStats_node>> nodes;
+  for (const auto &node : stats.nodes) {
+    nodes.push_back(create_tl_object<ton_api::validatorSession_endValidatorGroupStats_node>(node.id.bits256_value(),
+                                                                                            node.catchain_blocks));
+  }
+  auto obj = create_tl_object<ton_api::validatorSession_endValidatorGroupStats>(stats.session_id, stats.timestamp,
+                                                                                std::move(nodes));
+  auto s = td::json_encode<std::string>(td::ToJson(*obj.get()), false);
+  s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return c == '\n' || c == '\r'; }), s.end());
+
+  std::ofstream file;
+  file.open(fname, std::ios_base::app);
+  file << s << "\n";
+  file.close();
+
+  LOG(INFO) << "Writing end validator group stats for " << stats.session_id;
 }
 
 void ValidatorManagerImpl::get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise) {
@@ -3133,9 +3214,15 @@ void ValidatorManagerImpl::get_validator_groups_info_for_litequery(
 }
 
 void ValidatorManagerImpl::update_options(td::Ref<ValidatorManagerOptions> opts) {
-  // Currently options can be updated only to change state_serializer_enabled flag
+  // Currently options can be updated only to change state_serializer_enabled flag and collator_options
   if (!serializer_.empty()) {
     td::actor::send_closure(serializer_, &AsyncStateSerializer::update_options, opts);
+  }
+  for (auto &group : validator_groups_) {
+    td::actor::send_closure(group.second.actor, &ValidatorGroup::update_options, opts);
+  }
+  for (auto &group : next_validator_groups_) {
+    td::actor::send_closure(group.second.actor, &ValidatorGroup::update_options, opts);
   }
   opts_ = std::move(opts);
 }
@@ -3146,6 +3233,31 @@ td::actor::ActorOwn<ValidatorManagerInterface> ValidatorManagerFactory::create(
     td::actor::ActorId<overlay::Overlays> overlays) {
   return td::actor::create_actor<validator::ValidatorManagerImpl>("manager", std::move(opts), db_root, keyring, adnl,
                                                                   rldp, overlays);
+}
+
+void ValidatorManagerImpl::record_collate_query_stats(BlockIdExt block_id, double work_time, double cpu_work_time,
+                                                      CollationStats stats) {
+  auto &record = new_block_stats_record(block_id);
+  record.collator_work_time_ = work_time;
+  record.collator_cpu_work_time_ = cpu_work_time;
+  record.collator_stats_ = std::move(stats);
+}
+
+void ValidatorManagerImpl::record_validate_query_stats(BlockIdExt block_id, double work_time, double cpu_work_time) {
+  auto &record = new_block_stats_record(block_id);
+  record.validator_work_time_ = work_time;
+  record.validator_cpu_work_time_ = cpu_work_time;
+}
+
+ValidatorManagerImpl::RecordedBlockStats &ValidatorManagerImpl::new_block_stats_record(BlockIdExt block_id) {
+  if (!recorded_block_stats_.count(block_id)) {
+    recorded_block_stats_lru_.push(block_id);
+    if (recorded_block_stats_lru_.size() > 4096) {
+      recorded_block_stats_.erase(recorded_block_stats_lru_.front());
+      recorded_block_stats_lru_.pop();
+    }
+  }
+  return recorded_block_stats_[block_id];
 }
 
 size_t ValidatorManagerImpl::CheckedExtMsgCounter::get_msg_count(WorkchainId wc, StdSmcAddress addr) {
