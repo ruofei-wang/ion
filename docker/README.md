@@ -1,4 +1,4 @@
-# Official TON Docker image
+# Official ION Docker image
 
 1. [Dockerfile](#docker)
 2. [Kubernetes deployment on-premises](#deploy-on-premises-with-metallb-load-balancer-)
@@ -6,73 +6,66 @@
 4. [Kubernetes deployment on GCP](#deploy-on-gcp-google-cloud-platform)
 5. [Kubernetes deployment on AliCloud](#deploy-on-ali-cloud)
 6. [Troubleshooting](#troubleshooting)
+
 ## Prerequisites
 
-The TON node, whether it is validator or fullnode, requires a public IP address. 
-If your server is within an internal network or kubernetes you have to make sure that the required ports are available from the outside.
+The ION node, whether it is validator or fullnode, requires a public IP address. If your server is within an internal network or Kubernetes, you have to make sure that the required ports are available from the outside.
 
-Also pay attention at [hardware requirements](https://docs.ton.org/participate/run-nodes/full-node) for TON fullnodes and validators. Pods and StatefulSets in this guide imply these requirements. 
+Also pay attention to [hardware requirements](https://github.com/ice-blockchain/ion-utils/tree/master/documentation/validator/Readme.md) for ION fullnodes and validators. Pods and StatefulSets in this guide imply these requirements.
 
-It is recommended to everyone to read Docker chapter first in order to get a better understanding about TON Docker image and its parameters.  
+It is recommended that everyone read the Docker chapter first in order to get a better understanding of the ION Docker image and its parameters.  
 
 ## Docker
 
 ### Installation
-```docker pull ghcr.io/ton-blockchain/ton:latest```
+```docker pull ghcr.io/ice-blockchain/ion:latest```
 
 ### Configuration
-TON validator-engine supports number of command line parameters, 
-these parameters can be handed over to the container via environment variables. 
-Below is the list of supported arguments and their default values:
+ION validator-engine supports a number of command line parameters, these parameters can be handed over to the container via environment variables. Below is the list of supported arguments and their default values:
 
 | Argument          | Description                                                                                                                                                                               | Mandatory? |                      Default value                      |
 |:------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------:|:-------------------------------------------------------:|
-| PUBLIC_IP         | This will be a public IP address of your TON node. Normally it is the same IP address as your server's external IP. This also can be your proxy server or load balancer IP address.       |    yes     |                                                         |
-| GLOBAL_CONFIG_URL | TON global configuration file. Mainnet - https://ton.org/global-config.json, Testnet - https://ton.org/testnet-global.config.json                                                         |     no     | https://api.tontech.io/ton/wallet-mainnet.autoconf.json |
-| DUMP_URL          | URL to TON dump. Specify dump from https://dump.ton.org. If you are using testnet dump, make sure to download global config for testnet.                                                  |     no     |                                                         |
+| PUBLIC_IP         | This will be a public IP address of your ION node. Normally, it is the same IP address as your server's external IP. This also can be your proxy server or load balancer IP address.       |    yes     |                                                         |
+| GLOBAL_CONFIG_URL | ION global configuration file. Mainnet - https://cdn.ice.io/mainnet/global.config.json                               |     yes     |  |
+| DUMP_URL          | URL to ION dump. If you are using testnet dump, make sure to download global config for testnet.                                                  |     no     |                                                         |
 | VALIDATOR_PORT    | UDP port that must be available from the outside. Used for communication with other nodes.                                                                                                |     no     |                          30001                          |
-| CONSOLE_PORT      | This TCP port is used to access validator's console. Not necessarily to be opened for external access.                                                                                    |     no     |                          30002                          |
+| CONSOLE_PORT      | This TCP port is used to access the validator's console. Not necessarily to be opened for external access.                                                                                    |     no     |                          30002                          |
 | LITE_PORT         | Lite-server's TCP port. Used by lite-client.                                                                                                                                              |     no     |                          30003                          |
-| LITESERVER        | true or false. Set to true if you want up and running lite-server.                                                                                                                        |     no     |                          false                          |
+| LITESERVER        | true or false. Set to true if you want an up and running lite-server.                                                                                                                        |     no     |                          false                          |
 | STATE_TTL         | Node's state will be gc'd after this time (in seconds).                                                                                                                                   |     no     |                          86400                          |
 | ARCHIVE_TTL       | Node's archived blocks will be deleted after this time (in seconds).                                                                                                                      |     no     |                          86400                          |
 | THREADS           | Number of threads used by validator-engine.                                                                                                                                               |     no     |                            8                            |
 | VERBOSITY         | Verbosity level.                                                                                                                                                                          |     no     |                            3                            |
-| CUSTOM_ARG        | validator-engine might have some undocumented arguments. This is reserved for the test purposes.<br/>For example you can pass **--logname /var/ton-work/log** in order to have log files. |     no     |                                                         |
+| CUSTOM_ARG        | Validator-engine might have some undocumented arguments. This is reserved for test purposes.<br/>For example, you can pass **--logname /var/ion-work/log** in order to have log files. |     no     |                                                         |
 
 ### Run the node - the quick way
-The below command runs docker container with a TON node, that will start synchronization process.
+The command below runs a Docker container with an ION node that will start the synchronization process.
 
-Notice **--network host** option, means that the Docker container will use the network namespace of the host machine.
-In this case there is no need to map ports between the host and the container. The container will use the same IP address and ports as the host.
-This approach simplifies networking configuration for the container, and usually is used on the dedicated server with assigned public IP.
+Notice **--network host** option, which means that the Docker container will use the network namespace of the host machine. In this case, there is no need to map ports between the host and the container. The container will use the same IP address and ports as the host.
+
+This approach simplifies networking configuration for the container and usually is used on a dedicated server with an assigned public IP.
 
 Keep in mind that this option can also introduce security concerns because the container has access to the host's network interfaces directly, which might not be desirable in a multi-tenant environment.
 
-Check your firewall configuration and make sure that at least UDP port 43677 is publicly available.
-Find out your PUBLIC_IP:
+Check your firewall configuration and make sure that at least UDP port 43677 is publicly available. Find out your PUBLIC_IP:
 ```
 curl -4 ifconfig.me
 ```
 and replace it in the command below:
 ```
-docker run -d --name ton-node -v /data/db:/var/ton-work/db \
+docker run -d --name ion-node -v /data/db:/var/ion-work/db \
 -e "PUBLIC_IP=<PUBLIC_IP>" \
 -e "LITESERVER=true" \
--e "DUMP_URL=https://dump.ton.org/dumps/latest.tar.lz" \
 --network host \
--it ghcr.io/ton-blockchain/ton
+-it ghcr.io/ice-blockchain/ion
 ```
-If you don't need Lite-server, then remove -e "LITESERVER=true".
+If you don't need the lite-server, then remove `-e "LITESERVER=true"`.
 
 ### Run the node - isolated way
-In production environments it is recommended to use **Port mapping** feature of Docker's default bridge network. 
-When you use port mapping, Docker allocates a specific port on the host to forward traffic to a port inside the container.
-This is ideal for running multiple containers with isolated networks on the same host.
+In production environments, it is recommended to use **Port mapping** feature of Docker's default bridge network. When you use port mapping, Docker allocates a specific port on the host to forward traffic to a port inside the container. This is ideal for running multiple containers with isolated networks on the same host.
 ```
-docker run -d --name ton-node -v /data/db:/var/ton-work/db \
+docker run -d --name ion-node -v /data/db:/var/ion-work/db \
 -e "PUBLIC_IP=<PUBLIC_IP>" \
--e "DUMP_URL=https://dump.ton.org/dumps/latest.tar.lz" \
 -e "VALIDATOR_PORT=443" \
 -e "CONSOLE_PORT=88" \
 -e "LITE_PORT=443" \
@@ -80,23 +73,22 @@ docker run -d --name ton-node -v /data/db:/var/ton-work/db \
 -p 443:443/udp \
 -p 88:88/tcp \
 -p 443:443/tcp \
--it ghcr.io/ton-blockchain/ton
+-it ghcr.io/ion-blockchain/ion
 ```
-Adjust ports per your need. 
-Check your firewall configuration and make sure that customized ports (443/udp, 88/tcp and 443/tcp in this example) are publicly available.
+Adjust ports per your need. Check your firewall configuration and make sure that customized ports (443/udp, 88/tcp, and 443/tcp in this example) are publicly available.
 
-### Verify if TON node is operating correctly
-After executing above command check the log files:
+### Verify if ION node is operating correctly
+After executing the command above, check the log files:
 
-```docker logs ton-node```
+```docker logs ion-node```
 
-This is totally fine if in the log output for some time (up to 15 minutes) you see messages like:
+This is normal if in the log output for some time (up to 15 minutes) you see messages like:
 
 ```log
 failed to download proof link: [Error : 651 : no nodes]
 ```
 
-After some time you should be able to see multiple messages similar to these below:
+After some time, you should be able to see multiple messages similar to these below:
 ```log
 failed to download key blocks: [Error : 652 : adnl query timeout]
 last key block is [ w=-1 s=9223372036854775808 seq=34879845 rcEsfLF3E80PqQPWesW+rlOY2EpXd5UDrW32SzRWgus= C1Hs+q2Vew+WxbGL6PU1P6R2iYUJVJs4032CTS/DQzI= ]
@@ -106,22 +98,22 @@ finished downloading state (-1,8000000000000000,38585739):9E86E166AE7E24BAA22762
 getnextkey: [Error : 651 : not inited]
 getnextkey: [Error : 651 : not inited]
 ```
-As you noticed we have mounted docker volume to a local folder **/data/db**. 
-Go inside this folder on your server and check if its size is growing (```sudo du -h .*```)
+
+As you noticed, we have mounted a Docker volume to a local folder **/data/db**. Go inside this folder on your server and check if its size is growing (```sudo du -h .*```)
 
 Now connect to the running container:
 ```
-docker exec -ti ton-node /bin/bash
+docker exec -ti ion-node /bin/bash
 ```
 and try to connect and execute **getconfig** command via validator-engine-console:
 ```
-validator-engine-console -k client -p server.pub -a localhost:$(jq .control[].port <<< cat /var/ton-work/db/config.json) -c getconfig
+validator-engine-console -k client -p server.pub -a localhost:$(jq .control[].port <<< cat /var/ion-work/db/config.json) -c getconfig
 ```
-if you see a json output that means that validator-engine is up, now execute **last** command with a lite-client:
+If you see a JSON output, that means that the validator-engine is up. Now execute the **last** command with a lite-client:
 ```
-lite-client -a localhost:$(jq .liteservers[].port <<< cat /var/ton-work/db/config.json) -p liteserver.pub -c last
+lite-client -a localhost:$(jq .liteservers[].port <<< cat /var/ion-work/db/config.json) -p liteserver.pub -c last
 ```
-if you see the following output:
+If you see the following output:
 ```
 conn ready
 failed query: [Error : 652 : adnl query timeout]
@@ -129,37 +121,15 @@ cannot get server version and time (server too old?)
 server version is too old (at least 1.1 with capabilities 1 required), some queries are unavailable
 fatal error executing command-line queries, skipping the rest
 ```
-it means that the lite-server is up, but the node is not synchronized yet.
-Once the node is synchronized, the output of **last** command will be similar to this one:
+This means that the lite-server is up, but the node is not synchronized yet.
+
+Once the node is synchronized, the output of the **last** command will be similar to this one:
 
 ```
 conn ready
 server version is 1.1, capabilities 7
 server time is 1719306580 (delta 0)
-last masterchain block is (-1,8000000000000000,20435927):47A517265B25CE4F2C8B3058D46343C070A4B31C5C37745390CE916C7D1CE1C5:279F9AA88C8146257E6C9B537905238C26E37DC2E627F2B6F1D558CB29A6EC82
-server time is 1719306580 (delta 0)
-zerostate id set to -1:823F81F306FF02694F935CF5021548E3CE2B86B529812AF6A12148879E95A128:67E20AC184B9E039A62667ACC3F9C00F90F359A76738233379EFA47604980CE8
-```
-If you can't make it working, refer to the [Troubleshooting](#troubleshooting) section below.
-### Use validator-engine-console
-```docker exec -ti ton-node /bin/bash```
-
-```validator-engine-console -k client -p server.pub -a 127.0.0.1:$(jq .control[].port <<< cat /var/ton-work/db/config.json)```
-
-### Use lite-client
-```docker exec -ti ton-node /bin/bash```
-
-```lite-client -p liteserver.pub -a 127.0.0.1:$(jq .liteservers[].port <<< cat /var/ton-work/db/config.json)```
-
-If you use lite-client outside the Docker container, copy the **liteserver.pub** from the container:
-
-```docker cp ton-node:/var/ton-work/db/liteserver.pub /your/path```
-
-```lite-client -p /your/path/liteserver.pub -a <PUBLIC_IP>:<LITE_PORT>```
-
-### Stop TON docker container
-```
-docker stop ton-node
+last masterchain block is (-1,8000000000000000,20435927):47A517265B
 ```
 
 ## Kubernetes
@@ -180,7 +150,7 @@ kubectl describe node <NODE_NAME> | grep IPv4Address
 ```
 Double check if your Kubernetes node's external IP coincides with the host's IP address:
 ```
-kubectl run --image=ghcr.io/ton-blockchain/ton:latest validator-engine-pod --env="HOST_IP=1.1.1.1" --env="PUBLIC_IP=1.1.1.1"
+kubectl run --image=ghcr.io/ice-blockchain/ion:latest validator-engine-pod --env="HOST_IP=1.1.1.1" --env="PUBLIC_IP=1.1.1.1"
 kubectl exec -it validator-engine-pod -- curl -4 ifconfig.me
 kubectl delete pod validator-engine-pod
 ```
@@ -190,16 +160,16 @@ Now do the following:
 * Add a label to this particular node. 
 * By this label our pod will know where to be deployed and what storage to use:  
 ```
-kubectl label nodes <NODE_NAME> node_type=ton-validator
+kubectl label nodes <NODE_NAME> node_type=ion-validator
 ```
-* Replace **<PUBLIC_IP>** (and ports if needed) in file [ton-node-port.yaml](ton-node-port.yaml).
+* Replace **<PUBLIC_IP>** (and ports if needed) in file [ion-node-port.yaml](ion-node-port.yaml).
 * Replace **<LOCAL_STORAGE_PATH>** with a real path on host for Persistent Volume.
 * If you change the ports, make sure you specify appropriate env vars in Pod section.
 * If you want to use dynamic storage provisioning via volumeClaimTemplates, feel free to create own StorageClass. 
 
 #### Install
 ```yaml
-kubectl apply -f ton-node-port.yaml
+kubectl apply -f ion-node-port.yaml
 ```
 
 this deployment uses host's network stack (**hostNetwork: true**) option and service of **NodePort** type.
@@ -234,12 +204,12 @@ A **LoadBalancer** service type automatically provisions an external load balanc
 If you are running your Kubernetes cluster on-premises or in an environment where an external load balancer is not automatically provided, you can use a load balancer implementation like MetalLB.
 
 #### Prepare
-Select the node where persistent storage will be located for TON validator.
+Select the node where persistent storage will be located for ION validator.
 * Add a label to this particular node. By this label our pod will know where to be deployed:
 ```
-kubectl label nodes <NODE_NAME> node_type=ton-validator
+kubectl label nodes <NODE_NAME> node_type=ion-validator
 ```
-* Replace **<PUBLIC_IP>** (and ports if needed) in file [ton-metal-lb.yaml](ton-metal-lb.yaml).
+* Replace **<PUBLIC_IP>** (and ports if needed) in file [ion-metal-lb.yaml](ion-metal-lb.yaml).
 * Replace **<LOCAL_STORAGE_PATH>** with a real path on host for Persistent Volume.
 * If you change the ports, make sure you specify appropriate env vars in Pod section.
 * If you want to use dynamic storage provisioning via volumeClaimTemplates, feel free to create own StorageClass.
@@ -268,7 +238,7 @@ kubectl apply -f metallb-config.yaml
 #### Install
 
 ```yaml
-kubectl apply -f ton-metal-lb.yaml
+kubectl apply -f ion-metal-lb.yaml
 ```
 We do not use Pod Node Affinity here, since the Pod will remember the host with local storage it was bound to.
 
@@ -314,13 +284,13 @@ Use the commands from the previous chapter to see if node operates properly.
   * kube-proxy - Enable service networking within your cluster.
   * Amazon VPC CNI - Enable pod networking within your cluster.
 * Allocate Elastic IP.
-* Replace **<PUBLIC_IP>** with the newly created Elastic IP in [ton-aws.yaml](ton-aws.yaml)
+* Replace **<PUBLIC_IP>** with the newly created Elastic IP in [ion-aws.yaml](ion-aws.yaml)
 * Replace **<ELASTIC_IP_ID>** with Elastic IP allocation ID (see in AWS console).
 * Adjust StorageClass name. Make sure you are providing fast storage.
 
 #### Install
 
-```kubectl apply -f ton-aws.yaml```
+```kubectl apply -f ion-aws.yaml```
 
 #### Verify installation
 Use instructions from the previous sections. 
@@ -331,13 +301,13 @@ Use instructions from the previous sections.
 * Kubernetes cluster of type Standard (not Autopilot).
 * Premium static IP address. 
 * Adjust firewall rules and security groups to allow ports 30001/udp, 30002/tcp and 30003/tcp (default ones).
-* Replace **<PUBLIC_IP>** (and ports if needed) in file [ton-gcp.yaml](ton-gcp.yaml).
+* Replace **<PUBLIC_IP>** (and ports if needed) in file [ion-gcp.yaml](ion-gcp.yaml).
 * Adjust StorageClass name. Make sure you are providing fast storage.
 
 * Load Balancer will be created automatically according to Kubernetes service in yaml file.
 
 #### Install
-```kubectl apply -f ton-gcp.yaml```
+```kubectl apply -f ion-gcp.yaml```
 
 #### Verify installation
 Use instructions from the previous sections.
@@ -348,11 +318,11 @@ Use instructions from the previous sections.
 * AliCloud kubernetes cluster.
 * Elastic IP.
 * Replace **<ELASTIC_IP_ID>** with Elastic IP allocation ID (see in AliCloud console).
-* Replace **<PUBLIC_IP>** (and ports if needed) in file [ton-ali.yaml](ton-ali.yaml) with the elastic IP attached to your CLB.
+* Replace **<PUBLIC_IP>** (and ports if needed) in file [ion-ali.yaml](ion-ali.yaml) with the elastic IP attached to your CLB.
 * Adjust StorageClass name. Make sure you are providing fast storage.
 
 #### Install
-```kubectl apply -f ton-ali.yaml```
+```kubectl apply -f ion-ali.yaml```
 
 As a result CLB (classic internal Load Balancer) will be created automatically with assigned external IP.
 
@@ -361,12 +331,12 @@ Use instructions from the previous sections.
 
 ## Troubleshooting
 ## Docker 
-### TON node cannot synchronize, constantly see messages [Error : 651 : no nodes] in the log
+### ION node cannot synchronize, constantly see messages [Error : 651 : no nodes] in the log
 
 Start the new container without starting validator-engine:
 
 ```
-docker run -it -v /data/db:/var/ton-work/db \
+docker run -it -v /data/db:/var/ion-work/db \
 -e "HOST_IP=<PUBLIC_IP>" \
 -e "PUBLIC_IP=<PUBLIC_IP>" \
 -e "LITESERVER=true" \
@@ -374,7 +344,7 @@ docker run -it -v /data/db:/var/ton-work/db \
 -p 43678:43678/tcp \
 -p 43679:43679/tcp \
 --entrypoint /bin/bash \
-ghcr.io/ton-blockchain/ton
+ghcr.io/ice-blockchain/ion
 ```
 identify your PUBLIC_IP:
 ```
@@ -382,7 +352,7 @@ curl -4 ifconfig.me
 ```
 compare if resulted IP coincides with your <PUBLIC_IP>. 
 If it doesn't, exit container and launch it with the correct public IP.
-Then open UDP port (inside the container) you plan to allocate for TON node using netcat utility:
+Then open UDP port (inside the container) you plan to allocate for ION node using netcat utility:
 ```
 nc -ul 30001
 ```
@@ -406,17 +376,17 @@ Execute inside the container ```nc -l 30003``` and test connection from another 
  ```
 nc -vz <PUBLIC_IP> <LITE_PORT>
 ```
-### How to see what traffic is generated inside the TON docker container?
+### How to see what traffic is generated inside the ION docker container?
 There is available a traffic monitoring utility inside the container, just execute:
 ```
 iptraf-ng
 ```
 Other tools like **tcpdump**, **nc**, **wget**, **curl**, **ifconfig**, **pv**, **plzip**, **jq** and **netstat** are also available.
 
-### How to build TON docker image from sources?
+### How to build ION docker image from sources?
 ```
-git clone --recursive https://github.com/ton-blockchain/ton.git
-cd ton
+git clone --recursive https://github.com/ice-blockchain/ion.git
+cd ion
 docker build .
 ```
 
@@ -432,7 +402,7 @@ Try to install AWS LoadBalancer using ```Helm``` way.
 
 ---
 
-#### After installing AWS LB and running ton node, service shows error:
+#### After installing AWS LB and running ion node, service shows error:
 
 ```k describe service validator-engine-srv```
 
