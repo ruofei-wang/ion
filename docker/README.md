@@ -73,7 +73,7 @@ docker run -d --name ion-node -v /data/db:/var/ion-work/db \
 -p 443:443/udp \
 -p 88:88/tcp \
 -p 443:443/tcp \
--it ghcr.io/ion-blockchain/ion
+-it ghcr.io/ice-blockchain/ion
 ```
 Adjust ports per your need. Check your firewall configuration and make sure that customized ports (443/udp, 88/tcp, and 443/tcp in this example) are publicly available.
 
