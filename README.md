@@ -1,7 +1,7 @@
 <div align="center">
   <a href="https://ice.io">
     <picture>
-      <img alt="ION logo" src="https://avatars.githubusercontent.com/u/102382658?s=200">
+      <img alt="ION logo" src="https://avatars.githubusercontent.com/u/102382658?s=175">
     </picture>
   </a>
   <h3>Reference implementation of ION Node and tools</h3>
